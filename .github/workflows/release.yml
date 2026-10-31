@@ -1,0 +1,60 @@
+name: Release
+
+# Creates a GitHub release when the version in src/version.php changes on main.
+# Release notes come from the matching section in CHANGELOG.md.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(sed -nE "s/.*CULINA_VERSION = '([^']+)'.*/\1/p" src/version.php)
+          if [ -z "$VERSION" ]; then echo "Version not found" >&2; exit 1; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          awk -v ver="${{ steps.version.outputs.version }}" '
+            index($0, "## [" ver "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Culina ${{ steps.version.outputs.version }}" > release-notes.md
+          fi
+
+      - name: Build package
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          zip -r "culina-${{ steps.version.outputs.version }}.zip" . \
+            -x '.git/*' '.github/*' 'tests/*' 'data/*.sqlite*' 'data/sessions/*' 'config.php' 'release-notes.md'
+
+      - name: Create release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          gh release create "v$V" "culina-$V.zip" \
+            --title "Culina $V" \
+            --notes-file release-notes.md \
+            --target "$GITHUB_SHA"

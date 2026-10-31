@@ -1,0 +1,12 @@
+# Culina – Apache
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(src|views|data|tests|docs|\.git|\.github)(/|$) - [F,L]
+</IfModule>
+
+<FilesMatch "^(config\.php|.*\.sqlite.*|.*\.md|\.git.*)$">
+    Require all denied
+</FilesMatch>
