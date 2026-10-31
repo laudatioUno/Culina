@@ -21,9 +21,11 @@ jobs:
         run: php tests/run.php
       - name: Build package
         id: package
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           VERSION=$(sed -nE "s/.*CULINA_VERSION = '([^']+)'.*/\1/p" src/version.php)
-          NAME="culina-$VERSION-${GITHUB_SHA::7}.zip"
+          NAME="culina-$VERSION-${SHA::7}.zip"
           zip -qr "$NAME" . \
             -x '.git/*' '.github/*' 'tests/*' 'data/*.sqlite*' 'data/sessions/*' 'config.php'
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
