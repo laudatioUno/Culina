@@ -19,3 +19,17 @@ jobs:
         run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Tests
         run: php tests/run.php
+      - name: Build package
+        id: package
+        run: |
+          VERSION=$(sed -nE "s/.*CULINA_VERSION = '([^']+)'.*/\1/p" src/version.php)
+          NAME="culina-$VERSION-${GITHUB_SHA::7}.zip"
+          zip -qr "$NAME" . \
+            -x '.git/*' '.github/*' 'tests/*' 'data/*.sqlite*' 'data/sessions/*' 'config.php'
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.name }}
+          archive: false
+          retention-days: 30
